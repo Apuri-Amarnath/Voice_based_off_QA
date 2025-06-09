@@ -1,0 +1,15 @@
+streamlit
+langchain
+langchain-community
+faiss-cpu
+pydub
+pytest
+llama-cpp-python
+pypdf
+sentence-transformers
+langchain-huggingface
+pyttsx3
+streamlit-mic-recorder
+av
+faster-whisper
+ctranslate2

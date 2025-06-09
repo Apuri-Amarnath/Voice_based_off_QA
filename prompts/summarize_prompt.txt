@@ -1,0 +1,9 @@
+Write a concise summary of the following text:
+
+{text}
+
+Concise summary:
+
+
+
+
