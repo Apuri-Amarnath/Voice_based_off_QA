@@ -3,14 +3,15 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain.embeddings.base import Embeddings
 
-def create_vector_store(file_path: str, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+def create_vector_store(file_path: str, embeddings: Embeddings):
     """
     Creates a FAISS vector store from a PDF file.
 
     Args:
         file_path (str): The path to the PDF file.
-        model_name (str): The name of the Hugging Face model to use for embeddings.
+        embeddings (Embeddings): The embedding model to use.
 
     Returns:
         FAISS: The created vector store.
@@ -26,13 +27,7 @@ def create_vector_store(file_path: str, model_name: str = "sentence-transformers
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     texts = text_splitter.split_documents(documents)
 
-    # Create embeddings
-    embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={'device': 'cpu'}
-    )
-
-    # Create the vector store
+    # Create the vector store using the provided embeddings
     vector_store = FAISS.from_documents(texts, embeddings)
 
     return vector_store
@@ -47,13 +42,13 @@ def save_vector_store(vector_store: FAISS, file_path: str):
     """
     vector_store.save_local(file_path)
 
-def load_vector_store(file_path: str, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+def load_vector_store(file_path: str, embeddings: Embeddings):
     """
     Loads a FAISS vector store from a file.
 
     Args:
         file_path (str): The path to the vector store file.
-        model_name (str): The name of the Hugging Face model to use for embeddings.
+        embeddings (Embeddings): The embedding model to use.
 
     Returns:
         FAISS: The loaded vector store.
@@ -61,9 +56,5 @@ def load_vector_store(file_path: str, model_name: str = "sentence-transformers/a
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"File not found: {file_path}")
         
-    embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={'device': 'cpu'}
-    )
     vector_store = FAISS.load_local(file_path, embeddings, allow_dangerous_deserialization=True)
     return vector_store

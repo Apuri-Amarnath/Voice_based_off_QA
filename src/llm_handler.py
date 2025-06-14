@@ -3,7 +3,7 @@ from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import os
 
-def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_tokens: int = 512):
+def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_tokens: int = 512, n_threads: int = 4):
     """
     Loads the LlamaCpp language model.
 
@@ -12,6 +12,7 @@ def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_
         n_ctx (int): The context window size for the model.
         temperature (float): The temperature for sampling.
         max_tokens (int): The maximum number of tokens to generate.
+        n_threads (int): The number of CPU threads to use.
 
     Returns:
         LlamaCpp: The loaded language model.
@@ -26,6 +27,7 @@ def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_
         n_ctx=n_ctx,
         temperature=temperature,
         max_tokens=max_tokens,
+        n_threads=n_threads,
         n_batch=512,
         verbose=False,
         streaming=False,
