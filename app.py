@@ -17,25 +17,23 @@ from langchain_huggingface import HuggingFaceEmbeddings
 # --- CONFIGURATION & INITIALIZATION ---
 st.set_page_config(layout="wide", page_title="Voice-Based Document Q&A")
 
-# Custom CSS to color the mic recorder prompts and the processing button
+# Robust CSS for mic recorder and processing button coloring
 st.markdown("""
 <style>
-    /* Mic recorder button - Start state. Targets the p element inside the button. */
-    div[data-testid="stToolbar"] button[title="Start recording"] p {
-        color: #28a745 !important; /* Green */
-        font-weight: bold;
-    }
-    /* Mic recorder button - Stop state. Targets the p element inside the button. */
-    div[data-testid="stToolbar"] button[title="Stop recording"] p {
-        color: #dc3545 !important; /* Red */
-        font-weight: bold;
-    }
-    /* Disabled "Processing" button */
-    div[data-testid="stButton"] button[disabled] {
-        color: #ffc107 !important; /* Amber */
-        border-color: #ffc107 !important;
-        background-color: #31333F !important;
-    }
+button[title="Start recording"] * {
+    color: #28a745 !important;
+    font-weight: bold !important;
+}
+button[title="Stop recording"] * {
+    color: #dc3545 !important;
+    font-weight: bold !important;
+}
+button[disabled][data-testid="baseButton-secondary"] {
+    color: #ffc107 !important;
+    border-color: #ffc107 !important;
+    background-color: #31333F !important;
+    font-weight: bold !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -270,65 +268,60 @@ else:
     main_tab, inspect_tab = st.tabs(["Chat", "Inspect Document"])
 
     with main_tab:
-        # Create a single container for the chat interface
         chat_container = st.container()
-
         with chat_container:
-            # Top section for asking a question and listening to the answer
-            col1, col2 = st.columns(2)
-            with col1:
-                st.subheader("Ask a Question")
-                if st.session_state.get('processing_query', False):
-                    st.button("Processing... Please wait", disabled=True, use_container_width=True)
-                    audio_info = None
-                else:
+            is_processing = st.session_state.get('processing_query', False)
+
+            if is_processing:
+                st.subheader("Processing your question...")
+                st.info("Please wait while your question is being processed.")
+                st.button("Processing... Please wait", disabled=True, use_container_width=True)
+            else:
+                # --- Main Chat UI ---
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.subheader("Ask a Question")
                     audio_info = mic_recorder(
                         start_prompt="Start Recording",
                         stop_prompt="Stop Recording",
                         key='recorder',
                         use_container_width=True
                     )
-            with col2:
-                st.subheader("Listen to Last Answer")
-                if st.session_state.answer:
-                    if st.button("Read Answer Aloud", use_container_width=True):
-                        with st.spinner("Generating audio..."):
-                            tts = TextToSpeech()
-                            tts.speak(st.session_state.answer)
-                else:
-                    st.write("No answer yet.")
+                with col2:
+                    st.subheader("Listen to Last Answer")
+                    if st.session_state.answer:
+                        if st.button("Read Answer Aloud", use_container_width=True):
+                            with st.spinner("Generating audio..."):
+                                tts = TextToSpeech()
+                                tts.speak(st.session_state.answer)
+                    else:
+                        st.write("No answer yet.")
 
-            st.markdown("---")
+                st.markdown("---")
 
-            # This is the core logic block that handles transcription and triggers the QA chain
-            if audio_info and audio_info['bytes'] and audio_info['bytes'] != st.session_state.get('last_audio_bytes'):
-                st.session_state.last_audio_bytes = audio_info['bytes']
-                
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
-                    tmp.write(audio_info['bytes'])
-                    audio_path = tmp.name
+                # Handle audio and answer logic
+                if audio_info and audio_info['bytes'] and audio_info['bytes'] != st.session_state.get('last_audio_bytes'):
+                    st.session_state.last_audio_bytes = audio_info['bytes']
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
+                        tmp.write(audio_info['bytes'])
+                        audio_path = tmp.name
+                    with st.spinner(f"Transcribing with '{st.session_state.whisper_model_size}' model..."):
+                        try:
+                            st.session_state.query_text = transcribe_audio(
+                                audio_path,
+                                model_name=st.session_state.whisper_model_size,
+                                download_root=WHISPER_MODEL_DIR
+                            )
+                            st.session_state.processing_query = True
+                        except Exception as e:
+                            st.error(f"Transcription failed: {e}")
+                            st.session_state.query_text = ""
+                    os.remove(audio_path)
+                    st.rerun()
 
-                with st.spinner(f"Transcribing with '{st.session_state.whisper_model_size}' model..."):
-                    try:
-                        st.session_state.query_text = transcribe_audio(
-                            audio_path,
-                            model_name=st.session_state.whisper_model_size,
-                            download_root=WHISPER_MODEL_DIR
-                        )
-                        st.session_state.processing_query = True
-                    except Exception as e:
-                        st.error(f"Transcription failed: {e}")
-                        st.session_state.query_text = ""
-                
-                os.remove(audio_path)
-                st.rerun()
-
-            # Display area for the question, answer, and spinner
-            if st.session_state.query_text:
-                st.subheader("Your Question")
-                st.code(st.session_state.query_text, language=None)
-
-                if st.session_state.processing_query:
+                if st.session_state.query_text:
+                    st.subheader("Your Question")
+                    st.code(st.session_state.query_text, language=None)
                     with st.spinner("Searching for answers..."):
                         try:
                             result = st.session_state.qa_chain.invoke({"query": st.session_state.query_text})
@@ -336,20 +329,18 @@ else:
                             st.session_state.source_documents = result.get("source_documents", [])
                         except Exception as e:
                             st.error(f"QA Chain failed: {e}")
-                    
                     st.session_state.processing_query = False
                     st.rerun()
 
-            if st.session_state.answer:
-                st.subheader("Answer")
-                st.success(st.session_state.answer)
-
-                with st.expander("View Sources", expanded=True):
-                    if st.session_state.source_documents:
-                        for doc in st.session_state.source_documents:
-                            st.info(f"**Page {doc.metadata.get('page', 'N/A')}:**\n\n{doc.page_content}")
-                    else:
-                        st.write("No source documents were retrieved for this answer.")
+                if st.session_state.answer:
+                    st.subheader("Answer")
+                    st.success(st.session_state.answer)
+                    with st.expander("View Sources", expanded=True):
+                        if st.session_state.source_documents:
+                            for doc in st.session_state.source_documents:
+                                st.info(f"**Page {doc.metadata.get('page', 'N/A')}:**\n\n{doc.page_content}")
+                        else:
+                            st.write("No source documents were retrieved for this answer.")
     
     with inspect_tab:
         st.header(f"Document Contents: {st.session_state.get('active_pdf_name', 'N/A')}")

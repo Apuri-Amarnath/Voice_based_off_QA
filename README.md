@@ -1,105 +1,120 @@
-# 🎙️ Voice-Based Document Q&A
+# Voice-Based Document Q&A
 
-This project is an offline-first, multimodal application that allows you to chat with your PDF documents using your voice. It leverages local AI models for transcription, language understanding, and text-to-speech, ensuring your data remains private and the application runs without an internet connection.
+## Overview
 
-## ✨ Features
+Voice-Based Document Q&A is an offline-first, multimodal application that lets you chat with your PDF documents using your voice. All AI models run locally for privacy and offline use.
 
-*   **Voice-Based Interaction**: Ask questions about your documents by speaking directly into your microphone.
-*   **Offline-First**: All AI models (Transcription, LLM, Embeddings) run locally on your machine. No data is sent to the cloud.
-*   **Multi-PDF Support**: Upload multiple PDF documents and seamlessly switch between them to ask questions.
-*   **Audio Feedback**: Hear the AI's answer spoken back to you.
-*   **Performance Optimized**: 
-    *   Uses `faster-whisper` for efficient, CPU-based audio transcription.
-    *   Caches processed documents (vector stores) to avoid reprocessing the same file.
-    *   Allows selection of different Whisper model sizes to balance speed and accuracy.
-*   **Configurable AI**: Adjust LLM parameters like temperature, context size, and maximum answer length to fine-tune the AI's behavior.
-*   **Intuitive UI**: A clean, step-by-step interface built with Streamlit guides you through the process.
+---
 
-## 🏗️ Architecture & Tech Stack
+## Features
 
-The application is built with a modular architecture using the following key technologies:
+- Voice-based interaction with PDF documents
+- Offline-first: No data leaves your machine
+- Multi-PDF support and seamless switching
+- Audio feedback (text-to-speech)
+- Efficient, CPU-optimized transcription and LLM
+- Configurable AI parameters (temperature, context, answer length)
+- Clean, step-by-step Streamlit UI
 
-*   **Frontend**: `Streamlit` for the user interface and interactive components.
-*   **Audio Recording**: `streamlit-mic-recorder` for capturing microphone input in the browser.
-*   **Orchestration**: `LangChain` to chain together the different components (retriever, LLM, prompt).
-*   **LLM**: `Mistral-7B-Instruct` (GGUF format) running via `llama-cpp-python` for CPU-based inference.
-*   **Transcription**: `faster-whisper` for highly efficient speech-to-text.
-*   **Vector Store**: `FAISS` for creating and storing searchable document embeddings.
-*   **Embeddings Model**: `sentence-transformers/all-MiniLM-L6-v2` for converting text chunks into vectors.
-*   **Text-to-Speech**: `pyttsx3` for generating audio responses.
+---
 
-## 🚀 Setup and Installation
+## Architecture & Tech Stack
 
-Follow these steps to get the application running on your local machine.
+- **Frontend:** Streamlit
+- **Audio Recording:** streamlit-mic-recorder
+- **Orchestration:** LangChain
+- **LLM:** Mistral-7B-Instruct (GGUF) via llama-cpp-python
+- **Transcription:** faster-whisper
+- **Vector Store:** FAISS
+- **Embeddings:** sentence-transformers/all-MiniLM-L6-v2
+- **Text-to-Speech:** pyttsx3
 
-### 1. Clone the Repository
+---
 
-```bash
-git clone <repository_url>
-cd Voice_Based_Document_Navigation_and_QA
-```
+## Tested Environment
 
-### 2. Create and Activate a Virtual Environment
+- **OS:** Windows 10 (Build 19045)
+- **CPU:** Intel Core i5-1235U (10 cores)
+- **RAM:** 8 GB (minimum), 16 GB (recommended)
+- **Python:** 3.10
+- **Streamlit:** 1.32+
+- **Browser:** Chrome, Edge, Firefox
 
-It is highly recommended to use a virtual environment to manage project dependencies.
+## Minimum System Requirements
 
-```bash
-# For Windows
-python -m venv venv
-venv\Scripts\activate
+- **CPU:** 4-core Intel/AMD (8+ threads recommended)
+- **RAM:** 8 GB minimum
+- **Disk:** 2 GB free
+- **OS:** Windows 10/11, macOS 12+, or Linux
+- **Python:** 3.9+
+- **Microphone:** Required
+- **No GPU required**
 
-# For macOS/Linux
-python3 -m venv venv
-source venv/bin/activate
-```
+---
 
-### 3. Install Dependencies
+## Setup and Installation
 
-Install all the required Python packages using the `requirements.txt` file.
+1. **Clone the Repository**
+    ```bash
+    git clone <repository_url>
+    cd Voice_based_off_QA
+    ```
 
-```bash
-pip install -r requirements.txt
-```
+2. **Create and Activate a Virtual Environment**
+    ```bash
+    python -m venv .venv
+    .venv\Scripts\activate  # Windows
+    # or
+    source .venv/bin/activate  # macOS/Linux
+    ```
 
-### 4. Download AI Models
+3. **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-The application requires two sets of models: the Language Model (LLM) and the Whisper transcription model.
+4. **Download AI Models**
+    - Place the Mistral GGUF model in `models/`
+    - Whisper models will be downloaded automatically on first run, or you can manually place them in `whisper_models/`
 
-**a) Language Model (Mistral 7B)**
+---
 
-*   Create a directory named `models` in the root of the project.
-*   Download the GGUF model file from [Hugging Face: TheBloke/Mistral-7B-Instruct-v0.1-GGUF](https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/blob/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf).
-*   Place the downloaded `.gguf` file inside the `models/` directory. The final path should be `models/mistral-7b-instruct-v0.1.Q4_K_M.gguf`.
-
-**b) Whisper Model**
-
-*   The first time you run the app, the selected Whisper model (`base` by default) will be downloaded and cached automatically into the `whisper_models/` directory.
-*   If your machine has restricted internet access, you can download the model files manually from [Hugging Face:Systran](https://huggingface.co/Systran/faster-whisper-base/tree/main) and place them in a sub-folder inside `whisper_models`.
-
-## ▶️ How to Run the Application
-
-Once the setup is complete, you can run the application using Streamlit.
+## Running the Application
 
 ```bash
 streamlit run app.py --server.fileWatcherType none
 ```
 
-The `--server.fileWatcherType none` flag is recommended to prevent potential conflicts between Streamlit's file watcher and underlying libraries like PyTorch.
+---
 
-## 📖 How to Use the App
+## How to Use
 
-1.  **Step 1: Upload PDFs**: Use the file uploader in the sidebar to upload one or more PDF documents.
-2.  **Step 2: Select Document**: Once uploaded, choose the document you want to query from the dropdown menu.
-3.  **Step 3: Adjust Settings**:
-    *   **Whisper Model**: Choose the transcription model size. `tiny` is the fastest but least accurate, while `small` is the most accurate but slowest. `base` is a good balance.
-    *   **Source Chunks**: Control how many pieces of the document are used as context for the answer.
-    *   **LLM Parameters**: Adjust Temperature, Context Size, and Max Answer Length to control the AI's output.
-4.  **Step 4: Ask a Question**:
-    *   Click the "Click to Record" button and speak your question.
-    *   Click "Click to Stop" when you're done.
-    *   Your transcribed question will appear, and the AI will automatically start generating an answer.
-5.  **Listen and Review**:
-    *   The AI's answer will be displayed on the screen.
-    *   Click "Read Answer Aloud" to hear the response.
-    *   Expand the "View Sources" section to see the exact text chunks from the PDF that were used to generate the answer.
+1. **Upload PDFs:** Use the file uploader in the sidebar to upload one or more PDF documents.
+2. **Select Document:** Choose the document you want to query from the dropdown menu.
+3. **Adjust Settings:** Choose Whisper model, number of source chunks, and LLM parameters as needed.
+4. **Ask a Question:**
+    - Click "Start Recording" and speak your question.
+    - Click "Stop Recording" when finished.
+    - Your transcribed question will appear, and the AI will automatically start generating an answer.
+5. **Listen and Review:**
+    - The AI's answer will be displayed on the screen.
+    - Click "Read Answer Aloud" to hear the response.
+    - Expand the "View Sources" section to see the exact text chunks from the PDF that were used to generate the answer.
+
+---
+
+## Troubleshooting
+
+- **Model Not Found:** Ensure the `.gguf` file is in `models/`
+- **Slow Performance:** Use smaller models, smaller PDFs, or a faster CPU
+- **Streamlit File Watcher Error:** Use `--server.fileWatcherType none` on Windows
+- **Audio Issues:** Check your microphone and browser permissions
+
+---
+
+## Contributing
+
+Pull requests and issues are welcome.
+
+---
 
