@@ -13,3 +13,4 @@ streamlit-mic-recorder
 av
 faster-whisper
 ctranslate2
+PyPDF2

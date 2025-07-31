@@ -25,47 +25,46 @@ def test_create_vector_store(mock_faiss, mock_embeddings, mock_loader, dummy_pdf
     """
     # Arrange
     mock_loader.return_value.load.return_value = [Document(page_content="This is a test document.")]
-    mock_embeddings.return_value = "mock_embeddings"
     mock_faiss.from_documents.return_value = "mock_vector_store"
 
     # Act
-    vector_store = create_vector_store(dummy_pdf_file)
+    vector_store = create_vector_store(dummy_pdf_file, mock_embeddings)
 
     # Assert
-    assert vector_store == "mock_vector_store"
     mock_loader.assert_called_once_with(dummy_pdf_file)
-    mock_embeddings.assert_called_once_with(model_name="sentence-transformers/all-MiniLM-L6-v2")
     mock_faiss.from_documents.assert_called_once()
+    assert vector_store == "mock_vector_store"
 
 def test_create_vector_store_file_not_found():
     """
     Test that create_vector_store raises FileNotFoundError for a non-existent file.
     """
     with pytest.raises(FileNotFoundError):
-        create_vector_store("non_existent_file.pdf")
+        # Pass a dummy mock for the embeddings object
+        create_vector_store("non_existent_file.pdf", MagicMock())
 
 @patch("src.vector_store.FAISS")
-@patch("src.vector_store.HuggingFaceEmbeddings")
-def test_save_and_load_vector_store(mock_embeddings, mock_faiss, tmpdir):
+def test_save_and_load_vector_store(mock_faiss, tmpdir):
     """
     Test saving and loading a vector store.
     """
     # Arrange
     store_path = os.path.join(tmpdir, "test_store")
-    # create a dummy file for the store
-    os.makedirs(store_path)
-    with open(os.path.join(store_path, "index.faiss"), "w") as f:
-        f.write("dummy")
-
-
     mock_vs = MagicMock()
-    mock_faiss.load_local.return_value = "loaded_vector_store"
+    mock_embeddings = MagicMock()
     
+    # Create a dummy file for the store to be "found" by os.path.exists
+    os.makedirs(store_path, exist_ok=True)
+    with open(os.path.join(store_path, "index.faiss"), "w") as f:
+        f.write("dummy_data")
+
+    mock_faiss.load_local.return_value = "loaded_vector_store"
+
     # Act
     save_vector_store(mock_vs, store_path)
-    loaded_vs = load_vector_store(store_path)
+    loaded_vs = load_vector_store(store_path, mock_embeddings)
 
     # Assert
     mock_vs.save_local.assert_called_once_with(store_path)
-    mock_faiss.load_local.assert_called_once()
+    mock_faiss.load_local.assert_called_once_with(store_path, mock_embeddings, allow_dangerous_deserialization=True)
     assert loaded_vs == "loaded_vector_store"

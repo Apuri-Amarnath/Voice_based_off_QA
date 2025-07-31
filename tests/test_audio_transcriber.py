@@ -16,30 +16,37 @@ def dummy_wav_file(tmpdir):
         f.writeframes(np.random.randint(-32768, 32767, 16000).astype(np.int16).tobytes())
     return file_path
 
-@patch("src.audio_transcriber.whisper.load_model")
-def test_transcribe_audio(mock_load_model, dummy_wav_file):
+@patch('src.audio_transcriber.WhisperModel')
+def test_transcribe_audio(MockWhisperModel, dummy_wav_file):
     """
-    Test the transcribe_audio function with a mocked whisper model.
+    Test the transcribe_audio function with a mocked WhisperModel.
     """
     # Arrange
-    mock_model = MagicMock()
-    mock_model.transcribe.return_value = {"text": "This is a test transcription."}
-    mock_load_model.return_value = mock_model
+    mock_segment = MagicMock()
+    mock_segment.text = "This is a test transcription."
+    mock_model_instance = MockWhisperModel.return_value
+    mock_model_instance.transcribe.return_value = ([mock_segment], MagicMock())
 
     # Act
-    transcription = transcribe_audio(dummy_wav_file)
+    result = transcribe_audio(dummy_wav_file, model_name="tiny")
 
     # Assert
-    assert transcription == "This is a test transcription."
-    mock_load_model.assert_called_once_with("base")
-    mock_model.transcribe.assert_called_once_with(dummy_wav_file)
+    assert result == "This is a test transcription."
+    MockWhisperModel.assert_called_once_with(
+        "tiny",
+        device="cpu",
+        compute_type="int8",
+        download_root="whisper_models"  # Check for default value
+    )
+    mock_model_instance.transcribe.assert_called_once_with(dummy_wav_file, beam_size=5)
 
 def test_transcribe_audio_file_not_found():
     """
-    Test that transcribe_audio raises FileNotFoundError for a non-existent file.
+    Test that transcribe_audio returns an empty string for a non-existent file.
     """
-    with pytest.raises(FileNotFoundError):
-        transcribe_audio("non_existent_file.wav")
+    # The function now catches the exception and returns an empty string
+    result = transcribe_audio("non_existent_file.wav", model_name="tiny")
+    assert result == ""
 
 
 
