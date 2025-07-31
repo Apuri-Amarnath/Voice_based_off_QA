@@ -4,6 +4,7 @@ import tempfile
 import hashlib
 from pathlib import Path
 
+
 # Import project modules
 from src.vector_store import create_vector_store, save_vector_store, load_vector_store
 from src.audio_transcriber import transcribe_audio
@@ -14,6 +15,7 @@ from langchain.prompts import PromptTemplate
 from streamlit_mic_recorder import mic_recorder
 from langchain_huggingface import HuggingFaceEmbeddings
 
+os.environ["STREAMLIT_WATCHER_TYPE"] = "none"
 # --- CONFIGURATION & INITIALIZATION ---
 st.set_page_config(layout="wide", page_title="Voice-Based Document Q&A")
 
@@ -37,7 +39,7 @@ button[disabled][data-testid="baseButton-secondary"] {
 </style>
 """, unsafe_allow_html=True)
 
-MODEL_PATH = "models/mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+MODEL_PATH = "models\mistral-7b-instruct-v0.1.Q4_K_M.gguf"
 EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 VECTOR_STORE_CACHE_DIR = "vector_store_cache"
 WHISPER_MODEL_DIR = "whisper_models"
@@ -117,13 +119,18 @@ def load_embedding_model_cached(model_name: str):
 
 def build_qa_chain():
     """Builds or rebuilds the QA chain based on session state."""
+    print("[LOG] Entering build_qa_chain()...")
     if st.session_state.llm and st.session_state.active_pdf_hash:
         vector_store_path = Path(VECTOR_STORE_CACHE_DIR) / f"{st.session_state.active_pdf_hash}.faiss"
+        print(f"[LOG] Vector store path: {vector_store_path}")
         if vector_store_path.exists():
             try:
+                print("[LOG] Loading vector store...")
                 with st.spinner("Loading vector store..."):
                     vector_store = load_vector_store(str(vector_store_path), st.session_state.embedding_model)
+                print("[LOG] Vector store loaded.")
                 retriever = vector_store.as_retriever(search_kwargs={'k': st.session_state.num_retriever_docs})
+                print("[LOG] Retriever created.")
                 st.session_state.qa_chain = RetrievalQA.from_chain_type(
                     llm=st.session_state.llm,
                     chain_type="stuff",
@@ -131,12 +138,16 @@ def build_qa_chain():
                     return_source_documents=True,
                     chain_type_kwargs={"prompt": QA_TEMPLATE}
                 )
+                print("[LOG] QA chain constructed and stored in session state.")
                 st.sidebar.success(f"Ready to chat with '{st.session_state.get('active_pdf_name', 'document')}'!")
             except Exception as e:
+                print(f"[ERROR] Failed to load vector store or build QA chain: {e}")
                 st.sidebar.error(f"Failed to load vector store: {e}")
         else:
+            print("[WARN] Vector store path does not exist. QA chain set to None.")
             st.session_state.qa_chain = None
     else:
+        print("[WARN] LLM or active_pdf_hash not set. QA chain set to None.")
         st.session_state.qa_chain = None
 
 def process_uploaded_files(uploaded_files):
@@ -290,45 +301,80 @@ else:
                 with col2:
                     st.subheader("Listen to Last Answer")
                     if st.session_state.answer:
-                        if st.button("Read Answer Aloud", use_container_width=True):
-                            with st.spinner("Generating audio..."):
-                                tts = TextToSpeech()
-                                tts.speak(st.session_state.answer)
+                        st.write(st.session_state.answer)
+                        read_btn = st.button("Read Answer Aloud", use_container_width=True, key="read_aloud_btn")
+                        stop_btn = st.button("Stop Read Aloud", use_container_width=True, key="stop_read_aloud_btn")
+
+                        if 'tts_engine' not in st.session_state:
+                            tts = TextToSpeech()
+                            st.session_state.tts_engine = tts.engine
+                        else:
+                            tts = TextToSpeech()
+                            tts.engine = st.session_state.tts_engine
+
+                        if read_btn:
+                            st.session_state.is_reading_aloud = True
+                            tts.engine.say(st.session_state.answer)
+                            tts.engine.runAndWait()
+                            st.session_state.is_reading_aloud = False
+
+                        if stop_btn:
+                            st.session_state.is_reading_aloud = False
+                            st.session_state.tts_engine.stop()
                     else:
                         st.write("No answer yet.")
 
                 st.markdown("---")
 
+                # Display the transcribed question clearly after transcription
+                if st.session_state.get('query_text'):
+                    st.markdown(f"**Transcribed Question:** {st.session_state['query_text']}")
+
                 # Handle audio and answer logic
                 if audio_info and audio_info['bytes'] and audio_info['bytes'] != st.session_state.get('last_audio_bytes'):
+                    print("[LOG] New audio input detected. Starting transcription...")
                     st.session_state.last_audio_bytes = audio_info['bytes']
                     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp:
                         tmp.write(audio_info['bytes'])
                         audio_path = tmp.name
                     with st.spinner(f"Transcribing with '{st.session_state.whisper_model_size}' model..."):
                         try:
-                            st.session_state.query_text = transcribe_audio(
+                            transcribed_text = transcribe_audio(
                                 audio_path,
                                 model_name=st.session_state.whisper_model_size,
                                 download_root=WHISPER_MODEL_DIR
                             )
-                            st.session_state.processing_query = True
+                            print(f"[LOG] Transcription complete: {transcribed_text}")
+                            st.session_state.query_text = transcribed_text
+                            st.session_state.should_run_qa = True
                         except Exception as e:
+                            print(f"[ERROR] Transcription failed: {e}")
                             st.error(f"Transcription failed: {e}")
                             st.session_state.query_text = ""
+                            st.session_state.should_run_qa = False
                     os.remove(audio_path)
                     st.rerun()
 
-                if st.session_state.query_text:
+                if st.session_state.get("should_run_qa", False) and st.session_state.query_text:
+                    print(f"[LOG] Received query: {st.session_state.query_text}")
                     st.subheader("Your Question")
                     st.code(st.session_state.query_text, language=None)
                     with st.spinner("Searching for answers..."):
                         try:
-                            result = st.session_state.qa_chain.invoke({"query": st.session_state.query_text})
-                            st.session_state.answer = result.get("result", "No answer found.")
-                            st.session_state.source_documents = result.get("source_documents", [])
+                            print(f"[LOG] QA chain in session state: {st.session_state.qa_chain}")
+                            if st.session_state.qa_chain is None:
+                                print("[ERROR] QA chain is None! Cannot invoke.")
+                            else:
+                                print("[LOG] About to call QA chain invoke...")
+                                result = st.session_state.qa_chain.invoke({"query": st.session_state.query_text})
+                                print("[LOG] QA chain returned.")
+                                st.session_state.answer = result.get("result", "No answer found.")
+                                st.session_state.source_documents = result.get("source_documents", [])
                         except Exception as e:
+                            print(f"[ERROR] QA Chain failed: {e}")
                             st.error(f"QA Chain failed: {e}")
+                    st.session_state.should_run_qa = False
+                    st.session_state.query_text = ""
                     st.session_state.processing_query = False
                     st.rerun()
 

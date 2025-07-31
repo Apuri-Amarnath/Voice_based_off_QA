@@ -3,7 +3,7 @@ from langchain.callbacks.manager import CallbackManager
 from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 import os
 
-def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_tokens: int = 512, n_threads: int = 4):
+def load_llm(model_path: str, n_ctx: int = 2048, temperature: float = 0.75, max_tokens: int = 1024, n_threads: int = 10):
     """
     Loads the LlamaCpp language model.
 
